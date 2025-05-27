@@ -51,32 +51,21 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: 🔐 Import Code-Signing Certificates
-        uses: Apple-Actions/import-codesign-certs@v1
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        with:
-          p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
-          p12-password: ${{ secrets.CERTIFICATES_P12_PASSWORD }}
-
-      - name: 📱 Import Provisioning Profile
-        uses: Apple-Actions/download-provisioning-profiles@v1
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        with:
-          bundle-id: 'com.nhyyebo.clipped'
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
-
-      - name: 🏗️ Build iOS (Development)
+      - name: 🏗️ Build iOS (Development - Unsigned)
         if: github.event_name == 'workflow_dispatch'
         run: |
           flutter build ios --no-codesign --simulator
           
-      - name: 🏗️ Build iOS IPA (Release)
+      - name: 🏗️ Build iOS IPA (Release - Unsigned)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         run: |
-          flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist
+          flutter build ios --release --no-codesign
+          mkdir -p build/ios/ipa
+          cd build/ios/iphoneos/
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r ../ipa/clipped-unsigned.ipa Payload/
+          cd ../../../
 
       - name: 📤 Upload IPA Artifact
         uses: actions/upload-artifact@v4
@@ -93,7 +82,7 @@ jobs:
           files: build/ios/ipa/*.ipa
           name: Clipped iOS ${{ github.ref_name }}
           body: |
-            ## 🎨 Clipped - Beautiful iOS Clipboard Manager
+            ## 🎨 Clipped - Beautiful iOS Clipboard Manager (Unsigned Build)
             
             ### ✨ Features
             - 📋 **Auto clipboard monitoring** - Detects new copied content
@@ -103,10 +92,21 @@ jobs:
             - 🏷️ **Categories** - Organize your content
             - 🎨 **Beautiful dark UI** - Sleek iOS design
             
-            ### 📱 Installation
+            ### 📱 Installation (Sideloading)
+            **This is an unsigned build for sideloading only**
+            
             1. Download the IPA file below
-            2. Install using Xcode, AltStore, or your preferred method
-            3. Trust the developer certificate in Settings
+            2. Install using one of these methods:
+               - **AltStore**: Import the IPA file
+               - **Sideloadly**: Drag and drop the IPA
+               - **Xcode**: Window → Devices → Install App
+               - **3uTools** or similar tools
+            3. Trust the developer certificate in Settings → General → VPN & Device Management
+            
+            ### ⚠️ Important Notes
+            - This build is **not signed** with Apple Developer certificates
+            - Apps installed via sideloading typically expire after 7 days (free accounts)
+            - You'll need to reinstall periodically unless you have a paid developer account
             
             ### 🐛 Bug Reports
             Found an issue? Please [create an issue](https://github.com/nhyyebo/clipped-ios/issues)
@@ -117,12 +117,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🍎 Upload to App Store Connect
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        uses: Apple-Actions/upload-testflight-build@v1
-        with:
-          app-path: build/ios/ipa/*.ipa
-          issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
