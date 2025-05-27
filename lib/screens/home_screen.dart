@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/clipboard_item.dart';
 import '../providers/clipboard_provider.dart';
-import '../widgets/clipboard_card.dart';
-import '../utils/colors.dart';
+import '../theme/app_colors.dart';
 import '../utils/text_styles.dart';
+import '../widgets/clipboard_card.dart';
+import '../widgets/loading_animations.dart';
+import '../widgets/content_type_icon.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,153 +16,366 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  late AnimationController _fabController;
+  late Animation<double> _fabScaleAnimation;
+  bool _isSearchFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    _fabController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    
+    _fabScaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.9,
+    ).animate(CurvedAnimation(
+      parent: _fabController,
+      curve: Curves.easeInOut,
+    ));
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _scrollController.dispose();
+    _fabController.dispose();
     super.dispose();
-  }
-
-  void _showCreateItemDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _CreateItemBottomSheet(),
-    );
-  }
-
-  void _showFilterBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _FilterBottomSheet(),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title and settings
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Clipped',
-                          style: AppTextStyles.largeTitle,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _showFilterBottomSheet,
-                        icon: const Icon(
-                          Icons.tune_rounded,
-                          color: AppColors.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Search bar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.border,
-                        width: 0.5,
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: AppTextStyles.body,
-                      decoration: InputDecoration(
-                        hintText: 'Search clipboard...',
-                        hintStyle: AppTextStyles.bodySecondary,
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: AppColors.textSecondary,
-                        ),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                onPressed: () {
-                                  _searchController.clear();
-                                  context.read<ClipboardProvider>().searchItems('');
-                                },
-                                icon: const Icon(
-                                  Icons.clear_rounded,
-                                  color: AppColors.textSecondary,
-                                ),
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      onChanged: (value) {
-                        context.read<ClipboardProvider>().searchItems(value);
-                        setState(() {});
-                      },
-                    ),
-                  ),
+      backgroundColor: AppColors.primaryBlack,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: AppColors.velvetGradient,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildSearchBar(),
+              _buildFilterChips(),
+              Expanded(
+                child: _buildClipboardList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: _buildFloatingActionButton(),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          // App icon with glow effect
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.iosBlue.withOpacity(0.8),
+                  AppColors.iosBlue.withOpacity(0.6),
                 ],
               ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.iosBlue.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            
-            // Clipboard items list
-            Expanded(
-              child: Consumer<ClipboardProvider>(
-                builder: (context, provider, child) {
-                  if (provider.isLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.accent,
+            child: const Icon(
+              Icons.content_paste_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          
+          // Title and subtitle
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Clipped',
+                  style: AppTextStyles.largeTitle.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Consumer<ClipboardProvider>(
+                  builder: (context, provider, child) {
+                    return Text(
+                      '${provider.items.length} clips',
+                      style: AppTextStyles.callout.copyWith(
+                        color: AppColors.textTertiary,
                       ),
                     );
-                  }
-                  
-                  if (provider.items.isEmpty) {
-                    return _buildEmptyState();
-                  }
-                  
-                  return ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.only(bottom: 100),
-                    itemCount: provider.items.length,
-                    itemBuilder: (context, index) {
-                      final item = provider.items[index];
-                      return ClipboardCard(item: item);
-                    },
-                  );
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Settings button
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.cardElevated.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.separatorOpaque.withOpacity(0.5),
+                width: 1,
+              ),
+            ),
+            child: IconButton(
+              onPressed: _showSettingsBottomSheet,
+              icon: Icon(
+                Icons.settings_rounded,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: AppColors.cardGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isSearchFocused 
+              ? AppColors.iosBlue.withOpacity(0.5)
+              : AppColors.separatorOpaque.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) {
+          context.read<ClipboardProvider>().searchItems(value);
+        },
+        onTap: () => setState(() => _isSearchFocused = true),
+        onEditingComplete: () => setState(() => _isSearchFocused = false),
+        style: AppTextStyles.callout.copyWith(
+          color: AppColors.textPrimary,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Search clips...',
+          hintStyle: AppTextStyles.callout.copyWith(
+            color: AppColors.textQuaternary,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: _isSearchFocused 
+                ? AppColors.iosBlue 
+                : AppColors.textQuaternary,
+            size: 20,
+          ),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+                    context.read<ClipboardProvider>().searchItems('');
+                  },
+                  icon: Icon(
+                    Icons.clear_rounded,
+                    color: AppColors.textQuaternary,
+                    size: 18,
+                  ),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(16),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return Consumer<ClipboardProvider>(
+      builder: (context, provider, child) {
+        return Container(
+          height: 50,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            children: [
+              _buildFilterChip(
+                label: 'All',
+                isSelected: provider.selectedType == null && !provider.showFavoritesOnly,
+                onTap: () {
+                  provider.clearFilters();
                 },
+              ),
+              const SizedBox(width: 8),
+              _buildFilterChip(
+                label: 'Favorites',
+                isSelected: provider.showFavoritesOnly,
+                icon: Icons.favorite_rounded,
+                onTap: () {
+                  provider.toggleFavoritesFilter();
+                },
+              ),
+              const SizedBox(width: 8),
+              ...ClipboardItemType.values.map((type) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _buildFilterChip(
+                    label: _getTypeLabel(type),
+                    isSelected: provider.selectedType == type,
+                    icon: _getTypeIcon(type),
+                    onTap: () {
+                      provider.filterByType(
+                        provider.selectedType == type ? null : type,
+                      );
+                    },
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    IconData? icon,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: isSelected 
+              ? LinearGradient(
+                  colors: [
+                    AppColors.iosBlue.withOpacity(0.8),
+                    AppColors.iosBlue.withOpacity(0.6),
+                  ],
+                )
+              : null,
+          color: isSelected ? null : AppColors.cardElevated.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected 
+                ? AppColors.iosBlue.withOpacity(0.5)
+                : AppColors.separatorOpaque.withOpacity(0.3),
+            width: 1,
+          ),
+          boxShadow: isSelected ? [
+            BoxShadow(
+              color: AppColors.iosBlue.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ] : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected 
+                    ? Colors.white 
+                    : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: AppTextStyles.callout.copyWith(
+                color: isSelected 
+                    ? Colors.white 
+                    : AppColors.textSecondary,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateItemDialog,
-        child: const Icon(
-          Icons.add_rounded,
-          size: 28,
-        ),
-      ),
+    );
+  }
+
+  Widget _buildClipboardList() {
+    return Consumer<ClipboardProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return _buildLoadingList();
+        }
+
+        if (provider.items.isEmpty && provider.searchQuery.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        if (provider.items.isEmpty && provider.searchQuery.isNotEmpty) {
+          return _buildNoSearchResults();
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.only(bottom: 100),
+          itemCount: provider.items.length,
+          itemBuilder: (context, index) {
+            final item = provider.items[index];
+            return ClipboardCard(
+              item: item,
+              index: index,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadingList() {
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 100),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return LoadingAnimations.shimmerCard();
+      },
     );
   }
 
@@ -169,277 +384,457 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.content_paste_off_rounded,
-            size: 64,
-            color: AppColors.textTertiary,
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.textQuaternary.withOpacity(0.1),
+                  AppColors.textQuaternary.withOpacity(0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(60),
+            ),
+            child: Icon(
+              Icons.content_paste_rounded,
+              size: 60,
+              color: AppColors.textQuaternary,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
-            'No clipboard items',
-            style: AppTextStyles.title3,
+            'No clips yet',
+            style: AppTextStyles.title2.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Copy something or create a new item',
-            style: AppTextStyles.bodySecondary,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _showCreateItemDialog,
-            child: const Text('Create Item'),
+            'Copy something to get started',
+            style: AppTextStyles.callout.copyWith(
+              color: AppColors.textTertiary,
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-class _CreateItemBottomSheet extends StatefulWidget {
-  @override
-  State<_CreateItemBottomSheet> createState() => _CreateItemBottomSheetState();
-}
-
-class _CreateItemBottomSheetState extends State<_CreateItemBottomSheet> {
-  final TextEditingController _contentController = TextEditingController();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _categoryController = TextEditingController();
-
-  @override
-  void dispose() {
-    _contentController.dispose();
-    _titleController.dispose();
-    _categoryController.dispose();
-    super.dispose();
-  }
-
-  void _createItem() async {
-    if (_contentController.text.trim().isEmpty) return;
-
-    final provider = context.read<ClipboardProvider>();
-    await provider.createManualItem(
-      content: _contentController.text.trim(),
-      title: _titleController.text.trim().isEmpty 
-          ? null 
-          : _titleController.text.trim(),
-      category: _categoryController.text.trim().isEmpty 
-          ? null 
-          : _categoryController.text.trim(),
+  Widget _buildNoSearchResults() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 60,
+            color: AppColors.textQuaternary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No results found',
+            style: AppTextStyles.title3.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Try a different search term',
+            style: AppTextStyles.callout.copyWith(
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
     );
-
-    if (mounted) {
-      Navigator.of(context).pop();
-      HapticFeedback.mediumImpact();
-    }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildFloatingActionButton() {
+    return AnimatedBuilder(
+      animation: _fabScaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _fabScaleAnimation.value,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.iosBlue,
+                  AppColors.iosBlue.withOpacity(0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.iosBlue.withOpacity(0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FloatingActionButton(
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                _fabController.forward().then((_) {
+                  _fabController.reverse();
+                });
+                _showCreateBottomSheet();
+              },
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCreateBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildCreateBottomSheet(),
+    );
+  }
+
+  void _showSettingsBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildSettingsBottomSheet(),
+    );
+  }
+
+  Widget _buildCreateBottomSheet() {
+    final TextEditingController contentController = TextEditingController();
+    final TextEditingController titleController = TextEditingController();
+    
     return Container(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.secondaryBackground,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: AppColors.velvetGradient,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.separatorOpaque,
+            width: 1,
+          ),
         ),
-        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.textTertiary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            
-            Text(
-              'Create New Item',
-              style: AppTextStyles.title2,
-            ),
-            const SizedBox(height: 20),
-            
-            // Content field
-            TextField(
-              controller: _contentController,
-              style: AppTextStyles.body,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Content',
-                hintText: 'Enter the content to save...',
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // Title field
-            TextField(
-              controller: _titleController,
-              style: AppTextStyles.body,
-              decoration: const InputDecoration(
-                labelText: 'Title (Optional)',
-                hintText: 'Custom title for this item',
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            // Category field
-            TextField(
-              controller: _categoryController,
-              style: AppTextStyles.body,
-              decoration: const InputDecoration(
-                labelText: 'Category (Optional)',
-                hintText: 'Add a category tag',
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Buttons
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Text(
+                    'Create Clip',
+                    style: AppTextStyles.title3.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _createItem,
-                    child: const Text('Create'),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ),
+            
+            // Content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  // Title field
+                  TextField(
+                    controller: titleController,
+                    style: AppTextStyles.callout.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Title (optional)',
+                      hintStyle: AppTextStyles.callout.copyWith(
+                        color: AppColors.textQuaternary,
+                      ),
+                      filled: true,
+                      fillColor: AppColors.cardElevated.withOpacity(0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Content field
+                  TextField(
+                    controller: contentController,
+                    maxLines: 4,
+                    style: AppTextStyles.callout.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Enter content...',
+                      hintStyle: AppTextStyles.callout.copyWith(
+                        color: AppColors.textQuaternary,
+                      ),
+                      filled: true,
+                      fillColor: AppColors.cardElevated.withOpacity(0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Actions
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: AppColors.cardElevated.withOpacity(0.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: AppTextStyles.headline.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (contentController.text.isNotEmpty) {
+                          context.read<ClipboardProvider>().createManualItem(
+                            content: contentController.text,
+                            title: titleController.text.isNotEmpty 
+                                ? titleController.text 
+                                : null,
+                          );
+                          Navigator.pop(context);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: AppColors.iosBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Create',
+                        style: AppTextStyles.headline.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
-}
 
-class _FilterBottomSheet extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSettingsBottomSheet() {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.secondaryBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: AppColors.velvetGradient,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.separatorOpaque,
+          width: 1,
+        ),
       ),
-      padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.textTertiary,
-                borderRadius: BorderRadius.circular(2),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Settings',
+              style: AppTextStyles.title3.copyWith(
+                color: AppColors.textPrimary,
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          
-          Text(
-            'Filters',
-            style: AppTextStyles.title2,
-          ),
-          const SizedBox(height: 20),
           
           Consumer<ClipboardProvider>(
             builder: (context, provider, child) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Favorites toggle
-                  ListTile(
-                    leading: Icon(
-                      provider.showFavoritesOnly 
-                          ? Icons.favorite 
-                          : Icons.favorite_border,
-                      color: AppColors.error,
+              final stats = provider.getStorageStats();
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    _buildSettingsItem(
+                      icon: Icons.storage_rounded,
+                      title: 'Storage',
+                      subtitle: '${stats['itemCount']} clips',
+                      onTap: () {},
                     ),
-                    title: const Text('Favorites Only'),
-                    trailing: Switch(
-                      value: provider.showFavoritesOnly,
-                      onChanged: (_) => provider.toggleFavoritesFilter(),
-                      activeColor: AppColors.accent,
-                    ),
-                    onTap: () => provider.toggleFavoritesFilter(),
-                  ),
-                  
-                  const Divider(),
-                  
-                  // Type filters
-                  Text(
-                    'Content Type',
-                    style: AppTextStyles.headline,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  Wrap(
-                    spacing: 8,
-                    children: ClipboardItemType.values.map((type) {
-                      final isSelected = provider.selectedType == type;
-                      return FilterChip(
-                        label: Text(_getTypeLabel(type)),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          provider.filterByType(selected ? type : null);
-                        },
-                        selectedColor: AppColors.accent.withOpacity(0.2),
-                        checkmarkColor: AppColors.accent,
-                      );
-                    }).toList(),
-                  ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Clear filters button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        provider.clearFilters();
-                        Navigator.of(context).pop();
+                    _buildSettingsItem(
+                      icon: Icons.delete_outline_rounded,
+                      title: 'Clear All',
+                      subtitle: 'Delete all clipboard items',
+                      isDestructive: true,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _showClearConfirmation();
                       },
-                      child: const Text('Clear All Filters'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             },
+          ),
+          
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isDestructive ? AppColors.error : AppColors.textSecondary,
+      ),
+      title: Text(
+        title,
+        style: AppTextStyles.headline.copyWith(
+          color: isDestructive ? AppColors.error : AppColors.textPrimary,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: AppTextStyles.callout.copyWith(
+          color: AppColors.textTertiary,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  void _showClearConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardElevated,
+        title: Text(
+          'Clear All Clips?',
+          style: AppTextStyles.title3.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'This action cannot be undone.',
+          style: AppTextStyles.callout.copyWith(
+            color: AppColors.textTertiary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: AppTextStyles.headline.copyWith(
+                color: AppColors.iosBlue,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<ClipboardProvider>().clearAllItems();
+              Navigator.pop(context);
+            },
+            child: Text(
+              'Clear',
+              style: AppTextStyles.headline.copyWith(
+                color: AppColors.error,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
-  
+
   String _getTypeLabel(ClipboardItemType type) {
     switch (type) {
       case ClipboardItemType.text:
         return 'Text';
       case ClipboardItemType.url:
-        return 'URL';
+        return 'Links';
       case ClipboardItemType.email:
         return 'Email';
       case ClipboardItemType.phone:
         return 'Phone';
       case ClipboardItemType.other:
         return 'Other';
+    }
+  }
+
+  IconData _getTypeIcon(ClipboardItemType type) {
+    switch (type) {
+      case ClipboardItemType.text:
+        return Icons.text_fields;
+      case ClipboardItemType.url:
+        return Icons.link;
+      case ClipboardItemType.email:
+        return Icons.email;
+      case ClipboardItemType.phone:
+        return Icons.phone;
+      case ClipboardItemType.other:
+        return Icons.more_horiz;
     }
   }
 } 
