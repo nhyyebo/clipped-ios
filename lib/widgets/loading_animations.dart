@@ -53,7 +53,7 @@ class LoadingAnimations {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: AppColors.iosBlue.withOpacity(0.3 + (value * 0.7)),
+                    color: AppColors.iosBlue.withValues(alpha: 0.3 + (value * 0.7)),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 );

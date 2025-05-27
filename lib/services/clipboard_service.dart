@@ -102,7 +102,6 @@ class ClipboardService {
         return _formatUrl(item.content);
       case ClipboardItemType.text:
       case ClipboardItemType.other:
-      default:
         return item.content;
     }
   }

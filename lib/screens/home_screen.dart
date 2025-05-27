@@ -3,11 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/clipboard_item.dart';
 import '../providers/clipboard_provider.dart';
+import '../services/clipboard_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/text_styles.dart';
 import '../widgets/clipboard_card.dart';
 import '../widgets/loading_animations.dart';
-import '../widgets/content_type_icon.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _fabController;
   late Animation<double> _fabScaleAnimation;
   bool _isSearchFocused = false;
+  bool _isBlurEnabled = false;
 
   @override
   void initState() {
@@ -87,14 +88,14 @@ class _HomeScreenState extends State<HomeScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  AppColors.iosBlue.withOpacity(0.8),
-                  AppColors.iosBlue.withOpacity(0.6),
+                  AppColors.iosBlue.withValues(alpha: 0.8),
+                  AppColors.iosBlue.withValues(alpha: 0.6),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.iosBlue.withOpacity(0.3),
+                  color: AppColors.iosBlue.withValues(alpha: 0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -122,11 +123,24 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 Consumer<ClipboardProvider>(
                   builder: (context, provider, child) {
-                    return Text(
-                      '${provider.items.length} clips',
-                      style: AppTextStyles.callout.copyWith(
-                        color: AppColors.textTertiary,
-                      ),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${provider.items.length} clips',
+                          style: AppTextStyles.callout.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                        if (_isBlurEnabled)
+                          Text(
+                            'Blur mode active',
+                            style: AppTextStyles.caption1.copyWith(
+                              color: AppColors.iosOrange,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     );
                   },
                 ),
@@ -134,23 +148,26 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
           
-          // Settings button
+          // Blur toggle button
           Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.cardElevated.withOpacity(0.5),
+              color: AppColors.cardElevated.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: AppColors.separatorOpaque.withOpacity(0.5),
+                color: AppColors.separatorOpaque.withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
             child: IconButton(
-              onPressed: _showSettingsBottomSheet,
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                setState(() => _isBlurEnabled = !_isBlurEnabled);
+              },
               icon: Icon(
-                Icons.settings_rounded,
-                color: AppColors.textSecondary,
+                _isBlurEnabled ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                color: _isBlurEnabled ? AppColors.iosOrange : AppColors.textSecondary,
                 size: 20,
               ),
               padding: EdgeInsets.zero,
@@ -169,13 +186,13 @@ class _HomeScreenState extends State<HomeScreen>
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _isSearchFocused 
-              ? AppColors.iosBlue.withOpacity(0.5)
-              : AppColors.separatorOpaque.withOpacity(0.3),
+              ? AppColors.iosBlue.withValues(alpha: 0.5)
+              : AppColors.separatorOpaque.withValues(alpha: 0.3),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -264,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen>
                     },
                   ),
                 );
-              }).toList(),
+              }),
             ],
           ),
         );
@@ -290,22 +307,22 @@ class _HomeScreenState extends State<HomeScreen>
           gradient: isSelected 
               ? LinearGradient(
                   colors: [
-                    AppColors.iosBlue.withOpacity(0.8),
-                    AppColors.iosBlue.withOpacity(0.6),
+                    AppColors.iosBlue.withValues(alpha: 0.8),
+                    AppColors.iosBlue.withValues(alpha: 0.6),
                   ],
                 )
               : null,
-          color: isSelected ? null : AppColors.cardElevated.withOpacity(0.3),
+          color: isSelected ? null : AppColors.cardElevated.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected 
-                ? AppColors.iosBlue.withOpacity(0.5)
-                : AppColors.separatorOpaque.withOpacity(0.3),
+                ? AppColors.iosBlue.withValues(alpha: 0.5)
+                : AppColors.separatorOpaque.withValues(alpha: 0.3),
             width: 1,
           ),
           boxShadow: isSelected ? [
             BoxShadow(
-              color: AppColors.iosBlue.withOpacity(0.3),
+              color: AppColors.iosBlue.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -362,6 +379,8 @@ class _HomeScreenState extends State<HomeScreen>
             return ClipboardCard(
               item: item,
               index: index,
+              isBlurred: _isBlurEnabled,
+              onEdit: () => _showEditBottomSheet(item),
             );
           },
         );
@@ -390,8 +409,8 @@ class _HomeScreenState extends State<HomeScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.textQuaternary.withOpacity(0.1),
-                  AppColors.textQuaternary.withOpacity(0.05),
+                  AppColors.textQuaternary.withValues(alpha: 0.1),
+                  AppColors.textQuaternary.withValues(alpha: 0.05),
                 ],
               ),
               borderRadius: BorderRadius.circular(60),
@@ -463,18 +482,18 @@ class _HomeScreenState extends State<HomeScreen>
                 end: Alignment.bottomRight,
                 colors: [
                   AppColors.iosBlue,
-                  AppColors.iosBlue.withOpacity(0.8),
+                  AppColors.iosBlue.withValues(alpha: 0.8),
                 ],
               ),
               borderRadius: BorderRadius.circular(28),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.iosBlue.withOpacity(0.4),
+                  color: AppColors.iosBlue.withValues(alpha: 0.4),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -508,14 +527,6 @@ class _HomeScreenState extends State<HomeScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _buildCreateBottomSheet(),
-    );
-  }
-
-  void _showSettingsBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildSettingsBottomSheet(),
     );
   }
 
@@ -580,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen>
                         color: AppColors.textQuaternary,
                       ),
                       filled: true,
-                      fillColor: AppColors.cardElevated.withOpacity(0.5),
+                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -603,7 +614,7 @@ class _HomeScreenState extends State<HomeScreen>
                         color: AppColors.textQuaternary,
                       ),
                       filled: true,
-                      fillColor: AppColors.cardElevated.withOpacity(0.5),
+                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -625,7 +636,7 @@ class _HomeScreenState extends State<HomeScreen>
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: AppColors.cardElevated.withOpacity(0.5),
+                        backgroundColor: AppColors.cardElevated.withValues(alpha: 0.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -677,133 +688,176 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildSettingsBottomSheet() {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: AppColors.velvetGradient,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.separatorOpaque,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Settings',
-              style: AppTextStyles.title3.copyWith(
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          
-          Consumer<ClipboardProvider>(
-            builder: (context, provider, child) {
-              final stats = provider.getStorageStats();
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    _buildSettingsItem(
-                      icon: Icons.storage_rounded,
-                      title: 'Storage',
-                      subtitle: '${stats['itemCount']} clips',
-                      onTap: () {},
-                    ),
-                    _buildSettingsItem(
-                      icon: Icons.delete_outline_rounded,
-                      title: 'Clear All',
-                      subtitle: 'Delete all clipboard items',
-                      isDestructive: true,
-                      onTap: () {
-                        Navigator.pop(context);
-                        _showClearConfirmation();
-                      },
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isDestructive ? AppColors.error : AppColors.textSecondary,
-      ),
-      title: Text(
-        title,
-        style: AppTextStyles.headline.copyWith(
-          color: isDestructive ? AppColors.error : AppColors.textPrimary,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: AppTextStyles.callout.copyWith(
-          color: AppColors.textTertiary,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-
-  void _showClearConfirmation() {
-    showDialog(
+  void _showEditBottomSheet(ClipboardItem item) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardElevated,
-        title: Text(
-          'Clear All Clips?',
-          style: AppTextStyles.title3.copyWith(
-            color: AppColors.textPrimary,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildEditBottomSheet(item),
+    );
+  }
+
+  Widget _buildEditBottomSheet(ClipboardItem item) {
+    final TextEditingController contentController = TextEditingController(text: item.content);
+    final TextEditingController titleController = TextEditingController(text: item.title ?? '');
+    
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: AppColors.velvetGradient,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.separatorOpaque,
+            width: 1,
           ),
         ),
-        content: Text(
-          'This action cannot be undone.',
-          style: AppTextStyles.callout.copyWith(
-            color: AppColors.textTertiary,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Text(
+                    'Edit Clip',
+                    style: AppTextStyles.title3.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  // Title field
+                  TextField(
+                    controller: titleController,
+                    style: AppTextStyles.callout.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Title (optional)',
+                      hintStyle: AppTextStyles.callout.copyWith(
+                        color: AppColors.textQuaternary,
+                      ),
+                      filled: true,
+                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Content field
+                  TextField(
+                    controller: contentController,
+                    maxLines: 4,
+                    style: AppTextStyles.callout.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Enter content...',
+                      hintStyle: AppTextStyles.callout.copyWith(
+                        color: AppColors.textQuaternary,
+                      ),
+                      filled: true,
+                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Actions
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: AppColors.cardElevated.withValues(alpha: 0.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: AppTextStyles.headline.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (contentController.text.isNotEmpty) {
+                          // Update the existing item
+                          final updatedItem = ClipboardItem(
+                            id: item.id,
+                            content: contentController.text.trim(),
+                            type: ClipboardService.instance.detectContentType(contentController.text.trim()),
+                            title: titleController.text.isNotEmpty ? titleController.text.trim() : null,
+                            category: item.category,
+                            isFavorite: item.isFavorite,
+                            createdAt: item.createdAt,
+                            lastUsed: item.lastUsed,
+                          );
+                          
+                          context.read<ClipboardProvider>().updateItem(updatedItem);
+                          Navigator.pop(context);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: AppColors.iosBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Save',
+                        style: AppTextStyles.headline.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: AppTextStyles.headline.copyWith(
-                color: AppColors.iosBlue,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<ClipboardProvider>().clearAllItems();
-              Navigator.pop(context);
-            },
-            child: Text(
-              'Clear',
-              style: AppTextStyles.headline.copyWith(
-                color: AppColors.error,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

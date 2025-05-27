@@ -73,12 +73,12 @@ class _ContentTypeIconState extends State<ContentTypeIcon>
         borderRadius: BorderRadius.circular((widget.size + 16) / 2),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.3),
+            color: color.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -143,9 +143,9 @@ class _ContentTypeIconState extends State<ContentTypeIcon>
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [
-        color.withOpacity(0.8),
-        color.withOpacity(0.6),
-        color.withOpacity(0.4),
+        color.withValues(alpha: 0.8),
+        color.withValues(alpha: 0.6),
+        color.withValues(alpha: 0.4),
       ],
       stops: const [0.0, 0.5, 1.0],
     );
@@ -174,10 +174,10 @@ class ContentTypeBadge extends StatelessWidget {
         vertical: isCompact ? 2 : 4,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(isCompact ? 8 : 12),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 1,
         ),
       ),

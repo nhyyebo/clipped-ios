@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui';
 import '../models/clipboard_item.dart';
 import '../providers/clipboard_provider.dart';
 import '../services/clipboard_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/text_styles.dart';
 import 'content_type_icon.dart';
-import 'loading_animations.dart';
 
 class ClipboardCard extends StatefulWidget {
   final ClipboardItem item;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
   final int index;
+  final bool isBlurred;
 
   const ClipboardCard({
     super.key,
     required this.item,
     this.onTap,
+    this.onEdit,
     this.index = 0,
+    this.isBlurred = false,
   });
 
   @override
@@ -35,8 +39,6 @@ class _ClipboardCardState extends State<ClipboardCard>
   late Animation<Offset> _slideAnimation;
   
   bool _isPressed = false;
-  bool _isDeleting = false;
-  bool _showDeleteOptions = false;
 
   @override
   void initState() {
@@ -104,7 +106,9 @@ class _ClipboardCardState extends State<ClipboardCard>
     
     // Update last used
     widget.item.updateLastUsed();
-    context.read<ClipboardProvider>().notifyListeners();
+    if (mounted) {
+      context.read<ClipboardProvider>().updateItem(widget.item);
+    }
     
     // Show success feedback
     if (mounted) {
@@ -143,8 +147,6 @@ class _ClipboardCardState extends State<ClipboardCard>
   }
 
   Future<void> _handleDelete() async {
-    setState(() => _isDeleting = true);
-    
     // Haptic feedback
     HapticFeedback.mediumImpact();
     
@@ -159,17 +161,12 @@ class _ClipboardCardState extends State<ClipboardCard>
 
   void _showDeleteConfirmation() {
     HapticFeedback.lightImpact();
-    setState(() => _showDeleteOptions = true);
     
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => _buildDeleteBottomSheet(),
-    ).then((_) {
-      if (mounted) {
-        setState(() => _showDeleteOptions = false);
-      }
-    });
+    );
   }
 
   Widget _buildDeleteBottomSheet() {
@@ -287,11 +284,11 @@ class _ClipboardCardState extends State<ClipboardCard>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: _handleCopy,
+          onTap: widget.onEdit ?? _handleCopy,
           onLongPress: _showDeleteConfirmation,
           borderRadius: BorderRadius.circular(20),
-          splashColor: AppColors.iosBlue.withOpacity(0.1),
-          highlightColor: AppColors.iosBlue.withOpacity(0.05),
+          splashColor: AppColors.iosBlue.withValues(alpha: 0.1),
+          highlightColor: AppColors.iosBlue.withValues(alpha: 0.05),
           child: AnimatedBuilder(
             animation: _scaleAnimation,
             builder: (context, child) {
@@ -302,17 +299,17 @@ class _ClipboardCardState extends State<ClipboardCard>
                     gradient: AppColors.cardGradient,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: AppColors.separatorOpaque.withOpacity(0.5),
+                      color: AppColors.separatorOpaque.withValues(alpha: 0.5),
                       width: 1,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 40,
                         offset: const Offset(0, 16),
                       ),
@@ -346,27 +343,75 @@ class _ClipboardCardState extends State<ClipboardCard>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Title/Preview
-                Text(
-                  widget.item.displayTitle,
-                  style: AppTextStyles.headline.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                widget.isBlurred
+                    ? ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(
+                            sigmaX: 5.0,
+                            sigmaY: 5.0,
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              widget.item.displayTitle,
+                              style: AppTextStyles.headline.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        widget.item.displayTitle,
+                        style: AppTextStyles.headline.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                
                 const SizedBox(height: 4),
                 
                 // Content preview
                 if (widget.item.content != widget.item.displayTitle)
-                  Text(
-                    widget.item.previewContent,
-                    style: AppTextStyles.callout.copyWith(
-                      color: AppColors.textTertiary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  widget.isBlurred
+                      ? ClipRect(
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(
+                              sigmaX: 5.0,
+                              sigmaY: 5.0,
+                            ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                widget.item.previewContent,
+                                style: AppTextStyles.callout.copyWith(
+                                  color: AppColors.textTertiary,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Text(
+                          widget.item.previewContent,
+                          style: AppTextStyles.callout.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                 
                 const SizedBox(height: 8),
                 
@@ -402,7 +447,7 @@ class _ClipboardCardState extends State<ClipboardCard>
           Column(
             children: [
               Icon(
-                Icons.content_copy_rounded,
+                widget.onEdit != null ? Icons.edit_rounded : Icons.content_copy_rounded,
                 color: AppColors.textQuaternary,
                 size: 18,
               ),

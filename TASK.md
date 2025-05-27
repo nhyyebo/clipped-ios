@@ -25,9 +25,10 @@
 ### 🔧 Advanced Features
 - [x] Add search functionality - 2024-12-19
 - [x] Implement categories/tags - 2024-12-19
-- [ ] Add item editing capabilities
-- [ ] Create settings screen
+- [x] Add item editing capabilities - 2024-12-19
+- [x] Create settings screen - 2024-12-19
 - [x] Add haptic feedback - 2024-12-19
+- [x] Implement bottom navigation with Home and Settings tabs - 2024-12-19
 
 ### 🧪 Testing & Polish
 - [ ] Write unit tests for core functionality
@@ -47,6 +48,9 @@
 - [x] Add filter bottom sheet with type and favorites filtering - 2024-12-19
 - [x] Create manual item creation with bottom sheet UI - 2024-12-19
 - [x] Add app initialization with splash screen - 2024-12-19
+- [x] Implement blur toggle for privacy mode - 2024-12-19
+- [x] Add comprehensive settings with theme selection, storage management, and privacy options - 2024-12-19
+- [ ] Push bottom navigation and settings changes to GitHub with new release - 2024-12-19
 - [ ] Add swipe actions on clipboard cards (edit/delete)
 - [ ] Implement item detail view for editing
 - [ ] Add export functionality (share/save)

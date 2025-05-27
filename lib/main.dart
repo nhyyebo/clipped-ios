@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/clipboard_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_colors.dart';
 
@@ -171,6 +171,6 @@ class _AppInitializerState extends State<AppInitializer> {
       );
     }
 
-    return const HomeScreen();
+    return const MainScreen();
   }
 }
