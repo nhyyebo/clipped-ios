@@ -259,6 +259,204 @@ class _ClipboardCardState extends State<ClipboardCard>
     );
   }
 
+  void _showActionsBottomSheet() {
+    HapticFeedback.lightImpact();
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildActionsBottomSheet(),
+    );
+  }
+
+  Widget _buildActionsBottomSheet() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: AppColors.velvetGradient,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.separatorOpaque,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                ContentTypeIcon(
+                  type: widget.item.type,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.item.displayTitle,
+                    style: AppTextStyles.headline.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Actions
+          Column(
+            children: [
+              _buildActionTile(
+                icon: Icons.content_copy_rounded,
+                title: 'Copy',
+                subtitle: 'Copy to clipboard',
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleCopy();
+                },
+              ),
+              _buildActionTile(
+                icon: Icons.edit_rounded,
+                title: 'Edit',
+                subtitle: 'Edit this clip',
+                onTap: () {
+                  Navigator.pop(context);
+                  if (widget.onEdit != null) {
+                    widget.onEdit!();
+                  }
+                },
+              ),
+              _buildActionTile(
+                icon: widget.item.isFavorite ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                title: widget.item.isFavorite ? 'Remove from Favorites' : 'Add to Favorites',
+                subtitle: widget.item.isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                color: widget.item.isFavorite ? AppColors.iosRed : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _toggleFavorite();
+                },
+              ),
+              _buildActionTile(
+                icon: Icons.share_rounded,
+                title: 'Share',
+                subtitle: 'Share this clip',
+                onTap: () {
+                  Navigator.pop(context);
+                  _shareClip();
+                },
+              ),
+              _buildActionTile(
+                icon: Icons.delete_rounded,
+                title: 'Delete',
+                subtitle: 'Delete this clip',
+                color: AppColors.iosRed,
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteConfirmation();
+                },
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: color ?? AppColors.textSecondary,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTextStyles.callout.copyWith(
+                      color: color ?? AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: AppTextStyles.caption1.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _toggleFavorite() {
+    HapticFeedback.lightImpact();
+    final updatedItem = ClipboardItem(
+      id: widget.item.id,
+      content: widget.item.content,
+      type: widget.item.type,
+      title: widget.item.title,
+      category: widget.item.category,
+      isFavorite: !widget.item.isFavorite,
+      createdAt: widget.item.createdAt,
+      lastUsed: widget.item.lastUsed,
+    );
+    
+    context.read<ClipboardProvider>().updateItem(updatedItem);
+  }
+
+  void _shareClip() {
+    // TODO: Implement share functionality
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Share functionality coming soon!',
+          style: AppTextStyles.callout.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+        backgroundColor: AppColors.cardElevated,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -284,8 +482,8 @@ class _ClipboardCardState extends State<ClipboardCard>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: widget.onEdit ?? _handleCopy,
-          onLongPress: _showDeleteConfirmation,
+          onTap: _handleCopy,
+          onLongPress: _showActionsBottomSheet,
           borderRadius: BorderRadius.circular(20),
           splashColor: AppColors.iosBlue.withValues(alpha: 0.1),
           highlightColor: AppColors.iosBlue.withValues(alpha: 0.05),
@@ -446,12 +644,6 @@ class _ClipboardCardState extends State<ClipboardCard>
           const SizedBox(width: 12),
           Column(
             children: [
-              Icon(
-                widget.onEdit != null ? Icons.edit_rounded : Icons.content_copy_rounded,
-                color: AppColors.textQuaternary,
-                size: 18,
-              ),
-              const SizedBox(height: 4),
               Icon(
                 Icons.more_horiz_rounded,
                 color: AppColors.textQuaternary,
