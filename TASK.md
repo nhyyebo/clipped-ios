@@ -50,7 +50,8 @@
 - [x] Add app initialization with splash screen - 2024-12-19
 - [x] Implement blur toggle for privacy mode - 2024-12-19
 - [x] Add comprehensive settings with theme selection, storage management, and privacy options - 2024-12-19
-- [ ] Push bottom navigation and settings changes to GitHub with new release - 2024-12-19
+- [x] Fix manual clip creation UX with proper iOS-style full screen modals - 2024-12-19
+- [] Push bottom navigation and settings changes to GitHub with new release - 2024-12-19
 - [ ] Add swipe actions on clipboard cards (edit/delete)
 - [ ] Implement item detail view for editing
 - [ ] Add export functionality (share/save)

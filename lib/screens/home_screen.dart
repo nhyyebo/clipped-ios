@@ -3,11 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/clipboard_item.dart';
 import '../providers/clipboard_provider.dart';
-import '../services/clipboard_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/text_styles.dart';
 import '../widgets/clipboard_card.dart';
 import '../widgets/loading_animations.dart';
+import '../widgets/create_clip_screen.dart';
+import '../widgets/edit_clip_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -522,342 +523,45 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showCreateBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildCreateBottomSheet(),
-    );
-  }
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const CreateClipScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOut;
 
-  Widget _buildCreateBottomSheet() {
-    final TextEditingController contentController = TextEditingController();
-    final TextEditingController titleController = TextEditingController();
-    
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: AppColors.velvetGradient,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppColors.separatorOpaque,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Text(
-                    'Create Clip',
-                    style: AppTextStyles.title3.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Content
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  // Title field
-                  TextField(
-                    controller: titleController,
-                    style: AppTextStyles.callout.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Title (optional)',
-                      hintStyle: AppTextStyles.callout.copyWith(
-                        color: AppColors.textQuaternary,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Content field
-                  TextField(
-                    controller: contentController,
-                    maxLines: 4,
-                    style: AppTextStyles.callout.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Enter content...',
-                      hintStyle: AppTextStyles.callout.copyWith(
-                        color: AppColors.textQuaternary,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Actions
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: AppColors.cardElevated.withValues(alpha: 0.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: AppTextStyles.headline.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (contentController.text.isNotEmpty) {
-                          context.read<ClipboardProvider>().createManualItem(
-                            content: contentController.text,
-                            title: titleController.text.isNotEmpty 
-                                ? titleController.text 
-                                : null,
-                          );
-                          Navigator.pop(context);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: AppColors.iosBlue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Create',
-                        style: AppTextStyles.headline.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+        fullscreenDialog: true,
       ),
     );
   }
 
   void _showEditBottomSheet(ClipboardItem item) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildEditBottomSheet(item),
-    );
-  }
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => EditClipScreen(item: item),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOut;
 
-  Widget _buildEditBottomSheet(ClipboardItem item) {
-    final TextEditingController contentController = TextEditingController(text: item.content);
-    final TextEditingController titleController = TextEditingController(text: item.title ?? '');
-    
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: AppColors.velvetGradient,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppColors.separatorOpaque,
-            width: 1,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Text(
-                    'Edit Clip',
-                    style: AppTextStyles.title3.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Content
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  // Title field
-                  TextField(
-                    controller: titleController,
-                    style: AppTextStyles.callout.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Title (optional)',
-                      hintStyle: AppTextStyles.callout.copyWith(
-                        color: AppColors.textQuaternary,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Content field
-                  TextField(
-                    controller: contentController,
-                    maxLines: 4,
-                    style: AppTextStyles.callout.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Enter content...',
-                      hintStyle: AppTextStyles.callout.copyWith(
-                        color: AppColors.textQuaternary,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.cardElevated.withValues(alpha: 0.5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.all(16),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Actions
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: AppColors.cardElevated.withValues(alpha: 0.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: AppTextStyles.headline.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (contentController.text.isNotEmpty) {
-                          // Update the existing item
-                          final updatedItem = ClipboardItem(
-                            id: item.id,
-                            content: contentController.text.trim(),
-                            type: ClipboardService.instance.detectContentType(contentController.text.trim()),
-                            title: titleController.text.isNotEmpty ? titleController.text.trim() : null,
-                            category: item.category,
-                            isFavorite: item.isFavorite,
-                            createdAt: item.createdAt,
-                            lastUsed: item.lastUsed,
-                          );
-                          
-                          context.read<ClipboardProvider>().updateItem(updatedItem);
-                          Navigator.pop(context);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: AppColors.iosBlue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Save',
-                        style: AppTextStyles.headline.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+        fullscreenDialog: true,
       ),
     );
   }
